@@ -30,6 +30,35 @@ public final class Constants {
     public static final String EXECUTION_DRY_RUN_PROPERTY_NAME = io.cucumber.core.options.Constants.EXECUTION_DRY_RUN_PROPERTY_NAME;
 
     /**
+     * Property prefix used to describe a mapping of tags to exclusive resources: {@value}
+     * <p>
+     * For example:
+     * <pre> {@code
+     * cucumber.execution.exclusive-resources.my-tag-ab-rw.read-write=resource-a,b
+     * cucumber.execution.exclusive-resources.my-tag-a-r.read=a
+     * }
+     * </pre>
+     * So a scenario tagged with {@code @my-tag-ab-rw} will lock
+     * resource {@code a} and {@code b} for reading and writing
+     * and will not be concurrently executed with other scenarios
+     * tagged with {@code @my-tag-ab-rw} as well as scenarios tagged
+     * with {@code @my-tag-a-r}.
+     *
+     * @see <a href="https://junit.org/junit5/docs/current/user-guide/#writing-tests-parallel-execution-synchronization">Junit 5 User Guide - Synchronization</a>
+     */
+    public static final String EXECUTION_EXCLUSIVE_RESOURCES_NAME = "cucumber.execution.exclusive-resources";
+
+    /**
+     * @see #EXECUTION_EXCLUSIVE_RESOURCES_NAME
+     */
+    public static final String EXECUTION_EXCLUSIVE_RESOURCES_READ_WRITE_NAME = "read-write";
+
+    /**
+     * @see #EXECUTION_EXCLUSIVE_RESOURCES_NAME
+     */
+    public static final String EXECUTION_EXCLUSIVE_RESOURCES_READ_NAME = "read";
+
+    /**
      * Property name used to set tag filter: {@value}
      * <p>
      * Filters scenarios based on the provided tag expression e.g:

@@ -2,16 +2,22 @@ package io.cucumber.junit.platform.engine;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.platform.engine.ConfigurationParameters;
 import org.junit.platform.engine.TestDescriptor;
-import org.junit.platform.engine.TestTag;
 import org.junit.platform.engine.UniqueId;
+import org.junit.platform.engine.support.hierarchical.ExclusiveResource;
+import org.junit.platform.engine.support.hierarchical.ExclusiveResource.LockMode;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.Set;
 
 import static io.cucumber.core.resource.ClasspathSupport.CLASSPATH_SCHEME_PREFIX;
+import static io.cucumber.junit.platform.engine.Constants.EXECUTION_EXCLUSIVE_RESOURCES_NAME;
+import static io.cucumber.junit.platform.engine.Constants.EXECUTION_EXCLUSIVE_RESOURCES_READ_NAME;
+import static io.cucumber.junit.platform.engine.Constants.EXECUTION_EXCLUSIVE_RESOURCES_READ_WRITE_NAME;
 import static io.cucumber.junit.platform.engine.FeatureResolver.createFeatureResolver;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptySet;
@@ -25,6 +31,7 @@ import static org.junit.platform.engine.support.descriptor.ClasspathResourceSour
 import static org.junit.platform.engine.support.descriptor.FilePosition.from;
 
 class FeatureResolverTest {
+
     private final String featurePath = "io/cucumber/junit/platform/engine/feature-with-outline.feature";
     private final String featureSegmentValue = CLASSPATH_SCHEME_PREFIX + featurePath;
     private CucumberEngineDescriptor testDescriptor;
@@ -32,9 +39,16 @@ class FeatureResolverTest {
 
     @BeforeEach
     void before() {
+
+        ConfigurationParameters configurationParameters = new MapConfigurationParameters(
+            new HashMap<String, String>() {{
+                put(EXECUTION_EXCLUSIVE_RESOURCES_NAME + ".ResourceA" + EXECUTION_EXCLUSIVE_RESOURCES_READ_WRITE_NAME, "resource-a");
+                put(EXECUTION_EXCLUSIVE_RESOURCES_NAME + ".ResourceAReadOnly" + EXECUTION_EXCLUSIVE_RESOURCES_READ_NAME, "resource-a");
+            }});
+        EmptyEngineDiscoveryRequest request = new EmptyEngineDiscoveryRequest(configurationParameters);
         id = UniqueId.forEngine(new CucumberTestEngine().getId());
         testDescriptor = new CucumberEngineDescriptor(id);
-        FeatureResolver featureResolver = createFeatureResolver(testDescriptor, aPackage -> true);
+        FeatureResolver featureResolver = createFeatureResolver(request.getConfigurationParameters(), testDescriptor, aPackage -> true);
         featureResolver.resolveClasspathResource(selectClasspathResource(featurePath));
     }
 
@@ -56,7 +70,7 @@ class FeatureResolverTest {
         TestDescriptor scenario = getScenario();
         assertEquals("A scenario", scenario.getDisplayName());
         assertEquals(
-            asSet(create("FeatureTag"), create("ScenarioTag")),
+            asSet(create("FeatureTag"), create("ScenarioTag"), create("ResourceA"), create("ResourceAReadOnly")),
             scenario.getTags()
         );
         assertEquals(of(from(featurePath, from(5, 3))), scenario.getSource());
@@ -66,9 +80,15 @@ class FeatureResolverTest {
                 .append("scenario", "5"),
             scenario.getUniqueId()
         );
-
         PickleDescriptor pickleDescriptor = (PickleDescriptor) scenario;
         assertEquals(Optional.of("io.cucumber.junit.platform.engine"), pickleDescriptor.getPackage());
+        assertEquals(
+            asSet(
+                new ExclusiveResource("resource-a", LockMode.READ_WRITE),
+                new ExclusiveResource("resource-a", LockMode.READ)
+            ),
+            pickleDescriptor.getExclusiveResources()
+        );
     }
 
     @Test
@@ -111,7 +131,8 @@ class FeatureResolverTest {
         assertEquals(Optional.of("io.cucumber.junit.platform.engine"), pickleDescriptor.getPackage());
     }
 
-    private Set<TestTag> asSet(TestTag... tags) {
+    @SafeVarargs
+    private static <T> Set<T> asSet(T... tags) {
         return new HashSet<>(asList(tags));
     }
 
